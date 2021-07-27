@@ -7,6 +7,7 @@ CONSTANT RM
 VARIABLE rmState
 
 TCTypeOK == rmState \in [RM -> {"working", "prepared", "committed", "aborted"}]
+\* TCTypeOK == \A r \in RM: rmState[r] \in {"working", "prepared", "committed", "aborted"}
 
 TCInit == rmState = [r \in RM |-> "working"]
 
