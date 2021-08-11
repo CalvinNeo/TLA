@@ -173,7 +173,7 @@ Init == /\ messages = [m \in {} |-> 0]
 \* Server i restarts from stable storage.
 \* It loses everything but its currentTerm, votedFor, and log.
 Restart(i) ==
-    /\ restartNum      =< maxRestartNum
+    /\ restartNum + 1  =< maxRestartNum
     /\ state'          = [state EXCEPT ![i] = Follower]
     /\ votesResponded' = [votesResponded EXCEPT ![i] = {}]
     /\ votesGranted'   = [votesGranted EXCEPT ![i] = {}]
@@ -188,7 +188,7 @@ Restart(i) ==
 
 \* Server i times out and starts a new election.
 Timeout(i) == 
-              /\ timeoutNum      =< maxTimeoutNum
+              /\ timeoutNum + 1   =< maxTimeoutNum
               /\ state[i] \in {Follower, Candidate}
               /\ state' = [state EXCEPT ![i] = Candidate]
               /\ currentTerm' = [currentTerm EXCEPT ![i] = currentTerm[i] + 1]
@@ -259,6 +259,7 @@ BecomeLeader(i) ==
 
 \* Leader i receives a client request to add v to the log.
 ClientRequest(i, v) ==
+    /\ \A j \in Server : Len(log[j]) =< maxLength
     /\ state[i] = Leader
     /\ LET entry == [term  |-> currentTerm[i],
                      value |-> v]
@@ -361,6 +362,8 @@ HandleAppendEntriesRequest(i, j, m) ==
           \/ \* return to follower state
              /\ m.mterm = currentTerm[i]
              /\ state[i] = Candidate
+\* ≥¢ ‘“˝»Î¥ÌŒÛ
+\*             /\ state' = [state EXCEPT ![i] = Leader]
              /\ state' = [state EXCEPT ![i] = Follower]
              /\ UNCHANGED <<currentTerm, votedFor, logVars, messages>>
           \/ \* accept request
@@ -398,9 +401,9 @@ HandleAppendEntriesRequest(i, j, m) ==
                    \/ \* no conflict: append entry
                        /\ m.mentries /= << >>
                        /\ Len(log[i]) = m.mprevLogIndex
-\*                       /\ log' = [log EXCEPT ![i] = Append(log[i], m.mentries[1])]
+                       /\ log' = [log EXCEPT ![i] = Append(log[i], m.mentries[1])]
 \* ≥¢ ‘“˝»Î¥ÌŒÛ
-                       /\ log' =  [log EXCEPT ![i] = <<>>]
+\*                       /\ log' =  [log EXCEPT ![i] = <<>>]
                        /\ UNCHANGED <<serverVars, commitIndex, messages>>
        /\ UNCHANGED <<candidateVars, leaderVars, restartNum, timeoutNum>>
 
@@ -422,6 +425,8 @@ HandleAppendEntriesResponse(i, j, m) ==
 UpdateTerm(i, j, m) ==
     /\ m.mterm > currentTerm[i]
     /\ currentTerm'    = [currentTerm EXCEPT ![i] = m.mterm]
+\* ≥¢ ‘“˝»Î¥ÌŒÛ
+\*    /\ state'          = [state       EXCEPT ![i] = Leader]
     /\ state'          = [state       EXCEPT ![i] = Follower]
     /\ votedFor'       = [votedFor    EXCEPT ![i] = Nil]
        \* messages is unchanged so m can be processed further.
