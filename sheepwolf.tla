@@ -31,10 +31,12 @@ Unload1(X,Y) == /\ Boat \in X
                     /\ UNCHANGED Y
 
 Move == \/ Boat \in A
+            /\ Cardinality(M) > 0
             /\ A' = A \ {Boat}
             /\ B' = B \union {Boat}
             /\ UNCHANGED M
         \/ Boat \in B
+            /\ Cardinality(M) > 0
             /\ B' = B \ {Boat}
             /\ A' = A \union {Boat}
             /\ UNCHANGED M
