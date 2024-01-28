@@ -126,13 +126,19 @@ followerRead(node, key) ==
         IF key \in node THEN key
         ELSE NotFound
 
+\* If applied to follower_index, all writes before should be visible.
 Lin1 == 
     /\ \A write_key \in getAllWritesTo(follower_index):
         /\ followerRead(follower, getLock(write_key)) = getStorageByWrite(write_key)
 
+\* If applied to follower_index, all uncommitted write should either be not found,
+\* or we must find a lock for it.
+\* NOTE ReadIndex ensures if a follower is performing a read at follower_index,
+\* then the leader must has applied to at least follower_index.
 Lin2 == 
     /\ \A key \in getAllUncommittedLocks(follower_index):
-        \/ followerRead(follower, key) = NotFound
+        \/ /\ followerRead(follower, key) = NotFound
+           /\ getStorageByLock(key) \notin follower
         \/ followerRead(follower, key) = key
 
 Init == 
