@@ -19,6 +19,7 @@ VARIABLES follower_index
 \* All transactions, by their locks
 \* Foe example, `{{1, 2}}` means a transaction involves key 1 and key 2
 VARIABLES trans
+VARIABLES done
 
 VARIABLES DEBUG_LEADER_getAllLocksTo
 VARIABLES DEBUG_LEADER_getAllUncommittedWrites
@@ -46,7 +47,7 @@ WRITE_KEYS == { getWrite(key) : key \in KEYS }
 getAllWritesTo(index) == WRITE_KEYS \intersect ToSet(SubSeq(log, 1, index))
 getAllUncommittedWrites(index) == WRITE_KEYS \ getAllWritesTo(index)
 getAllUncommittedLocks(index) == { getLock(key) : key \in getAllUncommittedWrites(index) }
-    
+
 applyLock(node, key) ==
     /\ isLock(key)
     /\ follower' = follower \union {key}
@@ -66,6 +67,17 @@ applyWriteEnhanced(node, write_key) ==
     /\ isWrite(write_key)
     /\ follower' = follower \union {write_key, getStorageByWrite(write_key)} \union getEffectOfAllTransKeys(node, write_key)
 
+doneChecker ==
+    /\ done = FALSE
+    /\ KEYS \subseteq leader
+    /\ WRITE_KEYS \subseteq leader
+    /\ KEYS \subseteq follower
+    /\ WRITE_KEYS \subseteq follower
+    /\ done' = TRUE
+    /\ UNCHANGED <<leader, follower, log, last_index, follower_index, trans>>
+    /\ UNCHANGED debug_follower
+    /\ UNCHANGED debug_leader
+    
 genTrans1 == 
     /\ \E key, key2 \in KEYS: 
         /\ key \notin leader
@@ -81,6 +93,7 @@ genTrans1 ==
         /\ DEBUG_LEADER_getAllLocksTo' = getAllLocksTo(last_index)
         /\ UNCHANGED << follower, follower_index >>
         /\ UNCHANGED debug_follower
+        /\ UNCHANGED done
 
 genTrans2 == 
     /\ \E key \in KEYS: key \in leader /\ getWrite(key) \notin leader
@@ -92,6 +105,7 @@ genTrans2 ==
         /\ DEBUG_LEADER_getAllLocksTo' = getAllLocksTo(last_index)
         /\ UNCHANGED << follower, follower_index, trans >>
         /\ UNCHANGED debug_follower
+        /\ UNCHANGED done
 
 applyLog(node) == 
     /\ follower_index < last_index
@@ -104,6 +118,7 @@ applyLog(node) ==
     /\ DEBUG_getAllLocksTo' = getAllLocksTo(follower_index)
     /\ UNCHANGED << leader, log, last_index, trans >>
     /\ UNCHANGED debug_leader
+    /\ UNCHANGED done
 
 followerRead(node, key) ==
     IF getWrite(key) \in node THEN getStorageByLock(key)
@@ -133,13 +148,25 @@ Init ==
     /\ DEBUG_LEADER_getAllUncommittedWrites = {}
     /\ DEBUG_LEADER_getAllWritesTo = {}
     /\ DEBUG_LEADER_getAllLocksTo = {}
+    /\ done = FALSE
 
+
+Terminating == /\ done = TRUE
+               /\ UNCHANGED <<leader, follower, log, last_index, follower_index, trans>>
+               /\ UNCHANGED debug_follower
+               /\ UNCHANGED debug_leader
+               /\ UNCHANGED done
+               
 Next == 
     \/ genTrans1
     \/ genTrans2
     \/ applyLog(follower)
+    \/ doneChecker
+    \/ Terminating
 
-Spec == Init /\ [][Next]_vars
+allVars == vars \o << done >>
+
+Spec == Init /\ [][Next]_allVars
 
 \*THEOREM Spec => []Lin1 /\ []Lin2
 
